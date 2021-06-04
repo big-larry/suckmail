@@ -195,7 +195,7 @@ func (msg *MailMessage) AddAttachment(id, name, contentType string, data []byte)
 	return msg
 }
 
-func (msg *MailMessage) build() ([]byte, error) {
+func (msg *MailMessage) Build() ([]byte, error) {
 	buf := &bytes.Buffer{}
 	if msg.fromName != "" {
 		fmt.Fprintf(buf, "From: =?UTF-8?B?%s?= <%s>\r\n", base64.StdEncoding.EncodeToString([]byte(msg.fromName)), msg.fromEmail)

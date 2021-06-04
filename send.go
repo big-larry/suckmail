@@ -15,7 +15,7 @@ func Send(conn net.Conn, host, username, password string, message *MailMessage) 
 		}
 		return errors.New("Errors on build email message:\r\n" + str.String())
 	}
-	rawmessagedata, err := message.build()
+	rawmessagedata, err := message.Build()
 	if err != nil {
 		return err
 	}
