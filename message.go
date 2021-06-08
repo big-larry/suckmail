@@ -24,8 +24,8 @@ type MailMessage struct {
 	recieverEmail string // Почта получателя
 	recieverName  string // Имя получателя
 	replyTo       string // Кому отвечать
-	unsubscribe   string // Заголовок "List-Unsubscribe"
-	htmlLink      string // Ссылка на письмо в браузере
+	unsubscribe   string // Заголовок "List-Unsubscribe" TODO
+	htmlLink      string // Ссылка на письмо в браузере TODO
 	attachment    []mailAttachment
 	errors        []error
 }
@@ -139,10 +139,10 @@ func (msg *MailMessage) SetReciever(email, name string) *MailMessage {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetReciever", "Empty email"))
 		return msg
 	}
-	if name == "" {
-		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetReciever", "Empty name"))
-		return msg
-	}
+	// if name == "" {
+	// 	msg.errors = append(msg.errors, newMailMessageErrorFromString("SetReciever", "Empty name"))
+	// 	return msg
+	// }
 	msg.recieverEmail = email
 	msg.recieverName = name
 	return msg
@@ -197,13 +197,17 @@ func (msg *MailMessage) AddAttachment(id, name, contentType string, data []byte)
 
 func (msg *MailMessage) Build() ([]byte, error) {
 	buf := &bytes.Buffer{}
-	if msg.fromName != "" {
-		fmt.Fprintf(buf, "From: =?UTF-8?B?%s?= <%s>\r\n", base64.StdEncoding.EncodeToString([]byte(msg.fromName)), msg.fromEmail)
-	} else {
-		fmt.Fprintf(buf, "From: %s\r\n", msg.fromEmail)
+	if msg.fromEmail != "" {
+		if msg.fromName != "" {
+			fmt.Fprintf(buf, "From: =?UTF-8?B?%s?= <%s>\r\n", base64.StdEncoding.EncodeToString([]byte(msg.fromName)), msg.fromEmail)
+		} else {
+			fmt.Fprintf(buf, "From: %s\r\n", msg.fromEmail)
+		}
 	}
 	fmt.Fprintf(buf, "To: %s\r\n", msg.recieverEmail)
-	fmt.Fprintf(buf, "Reply-To: %s\r\n", msg.replyTo)
+	if msg.replyTo != "" {
+		fmt.Fprintf(buf, "Reply-To: %s\r\n", msg.replyTo)
+	}
 	fmt.Fprintf(buf, "Subject: =?UTF-8?B?%s?=\r\n", base64.StdEncoding.EncodeToString([]byte(msg.subject)))
 	if len(msg.attachment) == 0 {
 		fmt.Fprintln(buf, "Content-Type: multipart/alternative; boundary=\"===============main==\"")
