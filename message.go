@@ -16,18 +16,19 @@ import (
 )
 
 type MailMessage struct {
-	fromEmail     string // Почта отправителя
-	fromName      string // Имя отправителя
-	subject       string // Тема письма
-	html          string // Тело письма в HTML
-	plain         string // Тело письма простым текстом
-	recieverEmail string // Почта получателя
-	recieverName  string // Имя получателя
-	replyTo       string // Кому отвечать
-	unsubscribe   string // Заголовок "List-Unsubscribe" TODO
-	htmlLink      string // Ссылка на письмо в браузере TODO
-	attachment    []mailAttachment
-	errors        []error
+	fromEmail       string // Почта отправителя
+	fromName        string // Имя отправителя
+	subject         string // Тема письма
+	html            string // Тело письма в HTML
+	plain           string // Тело письма простым текстом
+	recieverEmail   string // Почта получателя
+	recieverName    string // Имя получателя
+	recieverCCEmail string // Почта получателя
+	replyTo         string // Кому отвечать
+	unsubscribe     string // Заголовок "List-Unsubscribe" TODO
+	htmlLink        string // Ссылка на письмо в браузере TODO
+	attachment      []mailAttachment
+	errors          []error
 }
 
 type mailAttachment struct {
@@ -148,6 +149,15 @@ func (msg *MailMessage) SetReciever(email, name string) *MailMessage {
 	return msg
 }
 
+func (msg *MailMessage) SetRecieverCC(email string) *MailMessage {
+	if email == "" {
+		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetRecieverCC", "Empty email"))
+		return msg
+	}
+	msg.recieverCCEmail = email
+	return msg
+}
+
 func (msg *MailMessage) SetSubject(subject string) *MailMessage {
 	if subject == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetSubject", "Empty string"))
@@ -166,12 +176,12 @@ func (msg *MailMessage) SetHTMLLink(link string) *MailMessage {
 	return msg
 }
 
-func (msg *MailMessage) SetUnsubscribe(header string) *MailMessage {
-	if header == "" {
+func (msg *MailMessage) SetUnsubscribeMail(email string) *MailMessage {
+	if email == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetUnsubscribe", "Empty string"))
 		return msg
 	}
-	msg.unsubscribe = header
+	msg.unsubscribe = suckutils.Concat("<mailto:", email, "?subject=unsubscribe>")
 	return msg
 }
 
@@ -208,7 +218,13 @@ func (msg *MailMessage) Build() ([]byte, error) {
 	if msg.replyTo != "" {
 		fmt.Fprintf(buf, "Reply-To: %s\r\n", msg.replyTo)
 	}
+	if msg.recieverCCEmail != "" {
+		fmt.Fprintf(buf, "CC: %s\r\n", msg.recieverCCEmail)
+	}
 	fmt.Fprintf(buf, "Subject: =?UTF-8?B?%s?=\r\n", base64.StdEncoding.EncodeToString([]byte(msg.subject)))
+	if msg.unsubscribe != "" {
+		fmt.Fprintf(buf, "List-Unsubscribe: %s", msg.unsubscribe)
+	}
 	if len(msg.attachment) == 0 {
 		fmt.Fprintln(buf, "Content-Type: multipart/alternative; boundary=\"===============main==\"")
 		fmt.Fprintln(buf, "MIME-Version: 1.0")
