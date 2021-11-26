@@ -27,11 +27,11 @@ type MailMessage struct {
 	replyTo         string // Кому отвечать
 	unsubscribe     string // Заголовок "List-Unsubscribe" TODO
 	htmlLink        string // Ссылка на письмо в браузере TODO
-	attachment      []mailAttachment
+	attachment      []MailAttachment
 	errors          []error
 }
 
-type mailAttachment struct {
+type MailAttachment struct {
 	id          string
 	name        string
 	contentType string
@@ -120,6 +120,14 @@ func (msg *MailMessage) SetHTML(body string, generatePlainText bool) *MailMessag
 	return msg
 }
 
+func (msg *MailMessage) GetPlainText() string {
+	return msg.plain
+}
+
+func (msg *MailMessage) GetHTMLLen() int {
+	return len(msg.html)
+}
+
 func (msg *MailMessage) SetFrom(email, name, reply string) *MailMessage {
 	if email == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetFrom", "Empty email"))
@@ -185,24 +193,42 @@ func (msg *MailMessage) SetUnsubscribeMail(email string) *MailMessage {
 	return msg
 }
 
-func (msg *MailMessage) AddAttachment(id, name, contentType string, data []byte) *MailMessage {
-	if name == "" {
+func (msg *MailMessage) AddAttachment(attachment *MailAttachment) *MailMessage {
+	if attachment.name == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("AddAttachment", "Empty name"))
 		return msg
 	}
-	if contentType == "" {
+	if attachment.contentType == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("AddAttachment", "Empty contentType"))
 		return msg
 	}
-	if len(data) == 0 {
+	if len(attachment.data) == 0 {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("AddAttachment", "Empty data"))
 		return msg
 	}
 	if msg.attachment == nil {
-		msg.attachment = make([]mailAttachment, 0)
+		msg.attachment = make([]MailAttachment, 0)
 	}
-	msg.attachment = append(msg.attachment, mailAttachment{id: id, name: name, contentType: contentType, data: data})
+	msg.attachment = append(msg.attachment, *attachment)
 	return msg
+}
+
+func NewMailAttachment(id, name, contentType string, data []byte) *MailAttachment {
+	return &MailAttachment{id: id, name: name, contentType: contentType, data: data}
+}
+
+func (a *MailAttachment) GetName() string {
+	return a.name
+}
+func (a *MailAttachment) GetId() string {
+	return a.id
+}
+func (a *MailAttachment) GetLen() int {
+	return len(a.data)
+}
+
+func (msg *MailMessage) GetRecieverName() string {
+	return msg.recieverName
 }
 
 func (msg *MailMessage) Build() ([]byte, error) {
@@ -223,7 +249,7 @@ func (msg *MailMessage) Build() ([]byte, error) {
 	}
 	fmt.Fprintf(buf, "Subject: =?UTF-8?B?%s?=\r\n", base64.StdEncoding.EncodeToString([]byte(msg.subject)))
 	if msg.unsubscribe != "" {
-		fmt.Fprintf(buf, "List-Unsubscribe: %s", msg.unsubscribe)
+		fmt.Fprintf(buf, "List-Unsubscribe: %s\r\n", msg.unsubscribe)
 	}
 	if len(msg.attachment) == 0 {
 		fmt.Fprintln(buf, "Content-Type: multipart/alternative; boundary=\"===============main==\"")
@@ -331,8 +357,12 @@ func printBase64(buf io.Writer, data []byte) {
 }
 
 func generatePlainTextFromHTML(body string) (string, error) {
-	body = strings.ReplaceAll(body, "<p>", "\r\n<p>")
-	body = strings.ReplaceAll(body, "<div>", "\r\n<div>")
+	body = strings.ReplaceAll(body, "</p>", "\r\n</p>")
+	body = strings.ReplaceAll(body, "</div>", "\r\n</div>")
+	body = strings.ReplaceAll(body, "</li>", "\r\n</li>")
+	body = strings.ReplaceAll(body, "</P>", "\r\n</P>")
+	body = strings.ReplaceAll(body, "</DIV>", "\r\n</DIV>")
+	body = strings.ReplaceAll(body, "</LI>", "\r\n</LI>")
 	doc, err := htmlquery.Parse(strings.NewReader(body))
 	if err != nil {
 		return "", err
