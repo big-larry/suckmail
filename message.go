@@ -7,11 +7,11 @@ import (
 	"fmt"
 	htmlTemplate "html/template"
 	"io"
-	"modules/suckutils"
 	"strings"
 	textTemplate "text/template"
 
 	"github.com/antchfx/htmlquery"
+	"github.com/big-larry/suckutils"
 	"golang.org/x/net/html"
 )
 
@@ -250,6 +250,7 @@ func (msg *MailMessage) Build() ([]byte, error) {
 	fmt.Fprintf(buf, "Subject: =?UTF-8?B?%s?=\r\n", base64.StdEncoding.EncodeToString([]byte(msg.subject)))
 	if msg.unsubscribe != "" {
 		fmt.Fprintf(buf, "List-Unsubscribe: %s\r\n", msg.unsubscribe)
+		// fmt.Fprintln(buf, "List-Unsubscribe-Post: List-Unsubscribe=One-Click")
 	}
 	if len(msg.attachment) == 0 {
 		fmt.Fprintln(buf, "Content-Type: multipart/alternative; boundary=\"===============main==\"")
