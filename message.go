@@ -24,11 +24,14 @@ type MailMessage struct {
 	recieverEmail   string // Почта получателя
 	recieverName    string // Имя получателя
 	recieverCCEmail string // Почта получателя
+	recieverCCName  string // Имя получателя
 	replyTo         string // Кому отвечать
+	replyToName     string // Кому отвечать
 	unsubscribe     string // Заголовок "List-Unsubscribe" TODO
 	htmlLink        string // Ссылка на письмо в браузере TODO
 	attachment      []MailAttachment
 	errors          []error
+	Data            interface{}
 }
 
 type MailAttachment struct {
@@ -78,6 +81,11 @@ func (msg *MailMessage) SetHTMLFromTemplate(t *htmlTemplate.Template, generatePl
 		return msg
 	}
 	return msg.SetHTML(w.String(), generatePlainText)
+}
+
+func (msg *MailMessage) SetData(data interface{}) *MailMessage {
+	msg.Data = data
+	return msg
 }
 
 func (msg *MailMessage) SetPlainTextFromTemplate(t *textTemplate.Template) *MailMessage {
@@ -143,6 +151,16 @@ func (msg *MailMessage) SetFrom(email, name, reply string) *MailMessage {
 	return msg
 }
 
+func (msg *MailMessage) SetReplyTo(email, name string) *MailMessage {
+	if email == "" {
+		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetReplyTo", "Empty email"))
+		return msg
+	}
+	msg.replyTo = email
+	msg.replyToName = name
+	return msg
+}
+
 func (msg *MailMessage) SetReciever(email, name string) *MailMessage {
 	if email == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetReciever", "Empty email"))
@@ -157,12 +175,13 @@ func (msg *MailMessage) SetReciever(email, name string) *MailMessage {
 	return msg
 }
 
-func (msg *MailMessage) SetRecieverCC(email string) *MailMessage {
+func (msg *MailMessage) SetRecieverCC(email, name string) *MailMessage {
 	if email == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetRecieverCC", "Empty email"))
 		return msg
 	}
 	msg.recieverCCEmail = email
+	msg.recieverCCName = name
 	return msg
 }
 
@@ -184,12 +203,24 @@ func (msg *MailMessage) SetHTMLLink(link string) *MailMessage {
 	return msg
 }
 
+func (msg *MailMessage) SetUnsubscribeLink(link string) *MailMessage {
+	if link == "" {
+		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetUnsubscribe", "Empty string"))
+		return msg
+	}
+	if len(msg.unsubscribe) > 0 {
+		msg.unsubscribe = strings.Join([]string{msg.unsubscribe, suckutils.Concat("<", link, ">")}, ",")
+	}
+	return msg
+}
 func (msg *MailMessage) SetUnsubscribeMail(email string) *MailMessage {
 	if email == "" {
 		msg.errors = append(msg.errors, newMailMessageErrorFromString("SetUnsubscribe", "Empty string"))
 		return msg
 	}
-	msg.unsubscribe = suckutils.Concat("<mailto:", email, "?subject=unsubscribe>")
+	if len(msg.unsubscribe) > 0 {
+		msg.unsubscribe = strings.Join([]string{msg.unsubscribe, suckutils.Concat("<mailto:", email, "?subject=unsubscribe>")}, ",")
+	}
 	return msg
 }
 
@@ -240,12 +271,14 @@ func (msg *MailMessage) Build() ([]byte, error) {
 			fmt.Fprintf(buf, "From: %s\r\n", msg.fromEmail)
 		}
 	}
-	fmt.Fprintf(buf, "To: %s\r\n", msg.recieverEmail)
-	if msg.replyTo != "" {
-		fmt.Fprintf(buf, "Reply-To: %s\r\n", msg.replyTo)
-	}
+	fmt.Fprintf(buf, "To: =?UTF-8?B?%s?= <%s>\r\n", base64.StdEncoding.EncodeToString([]byte(msg.recieverName)), msg.recieverEmail)
 	if msg.recieverCCEmail != "" {
-		fmt.Fprintf(buf, "CC: %s\r\n", msg.recieverCCEmail)
+		fmt.Fprintf(buf, "Cc: =?UTF-8?B?%s?= <%s>\r\n", base64.StdEncoding.EncodeToString([]byte(msg.recieverCCName)), msg.recieverCCEmail)
+	}
+	if msg.replyTo != "" {
+		fmt.Fprintf(buf, "Reply-To: =?UTF-8?B?%s?= <%s>\r\n", msg.replyToName, msg.replyTo)
+	} else {
+		fmt.Fprintf(buf, "Reply-To: =?UTF-8?B?%s?= <%s>\r\n", msg.fromName, msg.fromEmail)
 	}
 	fmt.Fprintf(buf, "Subject: =?UTF-8?B?%s?=\r\n", base64.StdEncoding.EncodeToString([]byte(msg.subject)))
 	if msg.unsubscribe != "" {
